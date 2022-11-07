@@ -303,13 +303,16 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
                 text="Выключить оповещение 🔕",
                 callback_data="Выключить оповещение 🔕"
             ))
+
         """Обновляем наш JSON файл"""
+
         try:
             USERS_BGTASKS[call.from_user.id].append({USERS[str(call.from_user.id)]["Plan_number"]: asyncio.create_task(Bot_sends_message_when_time_comes(str(call.from_user.id), USERS[str(call.from_user.id)]["Plan_number"]))}) # Запускаем фоновую задачу   
         except:
             USERS_BGTASKS[call.from_user.id] = []
             USERS_BGTASKS[call.from_user.id].append({USERS[str(call.from_user.id)]["Plan_number"]: asyncio.create_task(Bot_sends_message_when_time_comes(str(call.from_user.id), USERS[str(call.from_user.id)]["Plan_number"]))}) # Запускаем фоновую задачу   
         
+
         USERS_BGTASKS_JSON.append('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, USERS[str(call.from_user.id)]["Plan_number"]))
 
         with open("USERS_BGTASKS.jsonc", 'w') as f:
@@ -318,8 +321,21 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text("Теперь оповещение включено! 🔔", reply_markup=keyboard)
         
     elif call.data == "Выключить оповещение 🔕":
-        USERS_BGTASKS[call.from_user.id][0][USERS[str(call.from_user.id)]["Plan_number"]].cancel()  # Выключаем функцию, для отправки уведомления
-        del USERS_BGTASKS[call.from_user.id][0][USERS[str(call.from_user.id)]["Plan_number"]]
+        """Обновляем наш JSON файл"""
+
+        USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1][USERS[str(call.from_user.id)]["Plan_number"]].cancel()  # Выключаем функцию, для отправки уведомления
+        del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1]
+
+        USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, USERS[str(call.from_user.id)]["Plan_number"]))
+    
+        for index, i in enumerate(USERS_BGTASKS_JSON):
+            if index > 1 or int(i.split(',')[1][:-2]) > 1:
+                USERS_BGTASKS_JSON[index] = i.split(',')[0] + ', ' + str((int(i.split(',')[1][:-2]) - 1)) + '))'
+
+
+        open("USERS_BGTASKS.jsonc", 'w').write(
+            json.dumps(USERS_BGTASKS_JSON)  
+        )
 
         keyboard = InlineKeyboardMarkup()
         keyboard.add(aiogram.types.InlineKeyboardButton(
