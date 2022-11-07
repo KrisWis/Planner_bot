@@ -13,8 +13,17 @@ import json
 import pytz
 import operator
 import dotenv
+import ast
 
-dotenv.load_dotenv()
+dotenv.load_dotenv()  # Загружаем файл .env
+
+# Функция для преобразования строки в функцию
+def eval_code(code):
+    parsed = ast.parse(code, mode='eval')
+    fixed = ast.fix_missing_locations(parsed)
+    compiled = compile(fixed, '<string>', 'eval')
+    eval(compiled)
+
 
 async def populateDict(user_id: int):  # Функция создания словаря
     """
@@ -41,7 +50,6 @@ def saveDB(filename = "UsersDB.jsonc"):  # Сохранение словаря �
   """
   Сохраняет содержимое базы данных в файл.
   """
-
   global USERS
 
   json.dump(
@@ -57,6 +65,15 @@ def loadDB(filename = "UsersDB.jsonc", default = {}):  # Загрузка сло
 
     return json.load(open(filename, encoding="utf-8"))
 
+
+async def run():  # Функция, чтобы после перезагрузки бота продолжался цикл отправки уведомления
+    """Запускаем функцию из JSON"""
+
+    with open("USERS_BGTASKS.jsonc") as f:  # Открываем файл
+        data = json.load(f)  # Сохраняем список из файла в переменную
+
+    # Преобразуем строки из списка в функции с помощью eval_code()
+    asyncio.create_task([eval_code(i) for i in data])
 
 USERS = loadDB()
 # Логирование.
@@ -76,33 +93,34 @@ logging.basicConfig(  # Чтобы бот работал успешно, соз�
 # Создаём Telegram бота и диспетчер:
 Bot = aiogram.Bot(os.environ["TOKEN"])
 DP = aiogram.Dispatcher(Bot, storage=MemoryStorage())
-USERS_BGTASKS = {}  # Фоновые задачи для каждого пользователя
+USERS_BGTASKS_JSON = loadDB("USERS_BGTASKS.jsonc", [])  # Фоновые задачи для каждого пользователя
+USERS_BGTASKS = {}
 
 class UserState(StatesGroup):  # Создаём состояния
     name = State()  # Состояние имени
-
     date = State()  # Состояние даты
     time = State()  # Состояние времени
     text = State()  # Состояние текста
+
 
 async def find_user_plan(user_id):  # Создаем функцию, которая находит план пользователя в таблицах
     # Сохраняем в переменную план пользователя по индексу
     plan = [USERS[user_id][i] for i in USERS[user_id].keys()]
     result = []
-    for j in range(0, len(USERS[user_id]["Paragraph_text"])):
+    for j in range(0, len(USERS[user_id]["Paragraph_text"])):  # Проходимся циклом и вытаскиваем из нашего списка всё, что нам надо
         result.append("\n------------------------------------------------------------------"
                         "\nПункт {}\n\nДата: {}\n\nВремя: {}\n\nТекст: {}".format(j + 1, plan[1][j], plan[2][j], plan[3][j]))
 
-    return "".join(result)
+    return "".join(result)  # Преобразуем это в текст
 
 
 async def end_of_filling(user_id, state):
-    data = await state.get_data()
-    now = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"]))
-    user_date = now.replace(year=int(data['date'][0:4]), month=int(data['date'][5:7]), day=int(data['date'][8:10]))
+    data = await state.get_data()  # Достаем данные из state
+    now = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"]))  # Записываем в переменную время сейчас
+    user_date = now.replace(year=int(data['date'][0:4]), month=int(data['date'][5:7]), day=int(data['date'][8:10]))  # И ставим позиции на определённое время в переменных
     user_time = now.replace(hour=int(data['time'][0:2]), minute=int(data['time'][3:5]), second=int(data['time'][6:8]))
 
-    if now > user_date and now > user_time:
+    if now > user_date and now > user_time:  # Если данные неверны
         keyboard = InlineKeyboardMarkup()
         keyboard.add(aiogram.types.InlineKeyboardButton(
             text='Добавить пункт ➕',
@@ -112,7 +130,7 @@ async def end_of_filling(user_id, state):
         await Bot.send_message(user_id, "Ошибка! Введите данные заново! ❌", reply_markup=keyboard)
         await state.finish()
 
-    else:
+    else:  # Если данные верны
         keyboard = InlineKeyboardMarkup()
         for i in ['Всё верно✅', 'Редактировать дату 🖊', 'Редактировать время 🖊', "Редактировать текст 🖊"]:
             keyboard.add(aiogram.types.InlineKeyboardButton(
@@ -127,30 +145,52 @@ async def end_of_filling(user_id, state):
             with_data=False)  # Очистка всех состояний пользователя без удаления сохранённых данных
 
 
-async def Bot_sends_message_when_time_comes(user_id):
-    time = USERS[user_id]["Paragraph_time"][-1]
-    date = USERS[user_id]["Paragraph_date"][-1]
-    text = USERS[user_id]["Paragraph_text"][-1]
-    user_date = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"])).replace(year=int(date[0:4]), month=int(date[5:7]), day=int(date[8:10]))
+async def Bot_sends_message_when_time_comes(user_id, num):
+    num = num - 1  # Вычитаем из переменной 1, чтобы использовать переменную как индекс
+    """Определяем необходимые переменные"""
+    USERS[user_id]["Paragraph_time"].sort()
+    USERS[user_id]["Paragraph_date"].sort()
+    time = USERS[user_id]["Paragraph_time"][num]
+    date = USERS[user_id]["Paragraph_date"][num]
+    text = USERS[user_id]["Paragraph_text"][num]
+    user_date = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"])).replace(year=int(date[0:4]), month=int(date[5:7]), day=int(date[8:10]))  
     user_time = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"])).replace(hour=int(time[0:2]), minute=int(time[3:5]), second=int(time[6:8]))
-    while int(user_id) in USERS_BGTASKS:
+
+    while int(user_id) in USERS_BGTASKS or str(user_id) in str(USERS_BGTASKS_JSON):  # Создаем цикл
         now = datetime.datetime.now(pytz.timezone(USERS[user_id]["settings_time_zone"]))
         if now >= user_date and now >= user_time: 
-            await Bot.send_message(user_id, 'Оповещение! 🔔 \nНаступило время пункта {} с текстом: \n{}\n\n{}'.format(USERS[user_id]["Paragraph_text"].index(text) + 1, text, 'Так как сработало оповещение, то пункт удалён из плана.❌\nПри желании, вы можете изменить это, нажав кнопку "Настройки ⚙️"' if USERS[user_id]["settings_delete_item"] else ''))
-            USERS[user_id]["Experience"] += 10
-
-            if USERS[user_id]["settings_delete_item"]:
-                USERS[user_id]["Paragraph_date"].remove(date)
-                USERS[user_id]["Paragraph_time"].remove(time)
-                USERS[user_id]["Paragraph_text"].remove(text)
-                USERS[user_id]["Plan_number"] -= 1
-
-            saveDB()
-
-            USERS_BGTASKS[user_id][USERS[user_id]["Plan_number"]].cancel()
-            del USERS_BGTASKS[user_id][USERS[user_id]["Plan_number"]]
+            break
 
         await asyncio.sleep(5)
+
+    """Когда наступает время, то выполняем необходимые действия"""
+    await Bot.send_message(user_id, 'Оповещение! 🔔 \nНаступило время пункта {} с текстом: \n{}\n\n{}'.format(USERS[user_id]["Paragraph_text"].index(text) + 1, text, 'Так как сработало оповещение, то пункт удалён из плана.❌\nПри желании, вы можете изменить это, нажав кнопку "Настройки ⚙️"' if USERS[user_id]["settings_delete_item"] else ''))
+    
+    USERS[user_id]["Experience"] += 10
+    if USERS[user_id]["settings_delete_item"]:
+        USERS[user_id]["Paragraph_date"].remove(date)
+        USERS[user_id]["Paragraph_time"].remove(time)
+        USERS[user_id]["Paragraph_text"].remove(text)
+        USERS[user_id]["Plan_number"] -= 1
+
+    saveDB()
+    
+    """Обновляем наш JSON файл"""
+    USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(user_id, 1))
+    
+    for index, i in enumerate(USERS_BGTASKS_JSON):
+        if index > 1 or int(i.split(',')[1][:-2]) > 1:
+            USERS_BGTASKS_JSON[index] = i.split(',')[0] + ', ' + str((int(i.split(',')[1][:-2]) - 1)) + '))'
+
+    open("USERS_BGTASKS.jsonc", 'w', encoding="utf-8").write(
+        json.dumps(USERS_BGTASKS_JSON)  
+    )
+
+    try:
+        USERS_BGTASKS[user_id][0][USERS[user_id]["Plan_number"]].cancel()
+        del USERS_BGTASKS[user_id][0][USERS[user_id]["Plan_number"]]
+    except:
+        pass
 
 
 @DP.message_handler(commands=["start"])      # КОГДА ПОЛЬЗОВАТЕЛЬ ПИШЕТ /start
@@ -187,7 +227,6 @@ async def adding_name_to_google_table(msg: Message, state: FSMContext):
             break
         
     USERS[str(msg.from_user.id)]["Username"] = msg.text
-    USERS_BGTASKS[msg.from_user.id] = []
     saveDB()
 
     keyboard = ReplyKeyboardMarkup()
@@ -244,6 +283,8 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         USERS[str(call.from_user.id)]["Paragraph_text"].append(data['text'])
         USERS[str(call.from_user.id)]["Plan_number"] += 1
         USERS[str(call.from_user.id)]["Experience"] += 5
+        USERS[str(call.from_user.id)]["Paragraph_time"].sort()
+        USERS[str(call.from_user.id)]["Paragraph_date"].sort()
         saveDB()
 
         keyboard = InlineKeyboardMarkup()
@@ -262,13 +303,23 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
                 text="Выключить оповещение 🔕",
                 callback_data="Выключить оповещение 🔕"
             ))
+        """Обновляем наш JSON файл"""
+        try:
+            USERS_BGTASKS[call.from_user.id].append({USERS[str(call.from_user.id)]["Plan_number"]: asyncio.create_task(Bot_sends_message_when_time_comes(str(call.from_user.id), USERS[str(call.from_user.id)]["Plan_number"]))}) # Запускаем фоновую задачу   
+        except:
+            USERS_BGTASKS[call.from_user.id] = []
+            USERS_BGTASKS[call.from_user.id].append({USERS[str(call.from_user.id)]["Plan_number"]: asyncio.create_task(Bot_sends_message_when_time_comes(str(call.from_user.id), USERS[str(call.from_user.id)]["Plan_number"]))}) # Запускаем фоновую задачу   
+        
+        USERS_BGTASKS_JSON.append('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, USERS[str(call.from_user.id)]["Plan_number"]))
 
-        USERS_BGTASKS[call.from_user.id].append({USERS[str(call.from_user.id)]["Plan_number"]: asyncio.create_task(Bot_sends_message_when_time_comes(str(call.from_user.id)))}) # Запускаем фоновую задачу   
+        with open("USERS_BGTASKS.jsonc", 'w') as f:
+            json.dump(USERS_BGTASKS_JSON, f)  
+
         await call.message.edit_text("Теперь оповещение включено! 🔔", reply_markup=keyboard)
         
     elif call.data == "Выключить оповещение 🔕":
-        USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"]].cancel()
-        del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"]]
+        USERS_BGTASKS[call.from_user.id][0][USERS[str(call.from_user.id)]["Plan_number"]].cancel()  # Выключаем функцию, для отправки уведомления
+        del USERS_BGTASKS[call.from_user.id][0][USERS[str(call.from_user.id)]["Plan_number"]]
 
         keyboard = InlineKeyboardMarkup()
         keyboard.add(aiogram.types.InlineKeyboardButton(
@@ -311,18 +362,35 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text("Теперь твой часовой пояс: {} ✅".format(call.data[4:]))
 
     else:
+        """Удаление пункта и форматирование определённых файлов"""
         USERS[str(call.from_user.id)]["Paragraph_date"].pop(int(call.data))
         USERS[str(call.from_user.id)]["Paragraph_time"].pop(int(call.data))
         USERS[str(call.from_user.id)]["Paragraph_text"].pop(int(call.data))
         USERS[str(call.from_user.id)]["Experience"] += 5
         USERS[str(call.from_user.id)]["Plan_number"] -= 1
+        USERS[str(call.from_user.id)]["Paragraph_time"].sort()
+        USERS[str(call.from_user.id)]["Paragraph_date"].sort()
         saveDB()
+
+        USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, 1))
+    
+        for index, i in enumerate(USERS_BGTASKS_JSON):
+            if index > 1 or int(i.split(',')[1][:-2]) > 1:
+                USERS_BGTASKS_JSON[index] = i.split(',')[0] + ', ' + str((int(i.split(',')[1][:-2]) - 1)) + '))'
+
+
+        open("USERS_BGTASKS.jsonc", 'w').write(
+            json.dumps(USERS_BGTASKS_JSON)  
+        )
+
+        try:
+            USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)][0]["Plan_number"]].cancel()
+            del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)][0]["Plan_number"]]
+        except:
+            pass
 
         await call.message.edit_text("Пункт удалён из плана! ❌")
 
-        if call.from_user.id in USERS_BGTASKS:
-            USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"]].cancel()
-            del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"]]
 
 
 @DP.message_handler(state=UserState.date)  # Когда появляется состояние с date
@@ -382,11 +450,12 @@ async def adding_text_to_user_plan(msg: Message, state: FSMContext):
 async def ReplyKeyboard_handling(msg: Message):  # Обработка запросов с клавиатуры
 
     if str(msg.from_user.id) in USERS:
-        if msg.text == 'Показать план 🗓':
+
+        if msg.text == 'Показать план 🗓' or msg.text == '/show_plan':
 
             await msg.answer("Твой текущий план:{}".format(await find_user_plan(str(msg.from_user.id))) if USERS[str(msg.from_user.id)]['Paragraph_text'] else "У тебя ещё нету плана!")
 
-        elif msg.text == 'Редактировать план 📝' and str(msg.from_user.id) in USERS:
+        elif msg.text == 'Редактировать план 📝' or msg.text == '/edit_plan':
 
             keyboard = InlineKeyboardMarkup()
 
@@ -451,6 +520,11 @@ async def ReplyKeyboard_handling(msg: Message):  # Обработка запро
 
 if __name__ == "__main__":  # Если файл запускается как самостоятельный, а не как модуль
     logger.info("Запускаю бота...")  # В консоле будет отоброжён процесс запуска бота
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(run())
+    except:
+        pass
     executor.start_polling(  # Бот начинает работать
         dispatcher=DP,  # Передаем в функцию диспетчер
         # (диспетчер отвечает за то, чтобы сообщения пользователя доходили до бота)
