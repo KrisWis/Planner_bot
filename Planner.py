@@ -283,8 +283,13 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         USERS[str(call.from_user.id)]["Paragraph_text"].append(data['text'])
         USERS[str(call.from_user.id)]["Plan_number"] += 1
         USERS[str(call.from_user.id)]["Experience"] += 5
-        USERS[str(call.from_user.id)]["Paragraph_time"].sort()
+        res = []
+        for index, i in enumerate(USERS[str(call.from_user.id)]["Paragraph_text"]):
+            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_time"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_time"])[index])])
+            
+        USERS[str(call.from_user.id)]["Paragraph_text"] = res
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
+        USERS[str(call.from_user.id)]["Paragraph_time"].sort()
         saveDB()
 
         keyboard = InlineKeyboardMarkup()
