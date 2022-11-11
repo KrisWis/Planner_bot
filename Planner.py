@@ -14,6 +14,7 @@ import pytz
 import operator
 import dotenv
 import ast
+import random
 
 dotenv.load_dotenv()  # Загружаем файл .env
 
@@ -285,13 +286,16 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         USERS[str(call.from_user.id)]["Experience"] += 5
         res = []
         for index, i in enumerate(USERS[str(call.from_user.id)]["Paragraph_text"]):
-            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_time"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_time"])[index])])
-            
+            """Проверяем список на наличии дубликатов"""
+            if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])):
+                res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_time"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_time"])[index])])
+            else:
+                res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_date"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_date"])[index])])
+           
         USERS[str(call.from_user.id)]["Paragraph_text"] = res
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
         USERS[str(call.from_user.id)]["Paragraph_time"].sort()
         saveDB()
-
         keyboard = InlineKeyboardMarkup()
         keyboard.add(aiogram.types.InlineKeyboardButton(
                 text="Включить оповещение 🔔",
@@ -463,7 +467,15 @@ async def adding_time_to_user_plan(msg: Message, state: FSMContext):
 
 @DP.message_handler(state=UserState.text)  # Когда появляется состояние с text
 async def adding_text_to_user_plan(msg: Message, state: FSMContext):
-    await state.update_data(text=msg.text)
+    result = msg.text
+    if result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
+        while True:
+            result += str(len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == msg.text]) + random.randint(1, 100))
+            await msg.answer('❗️ Цифра добавлена в конец текста плана, т.к план с таким текстом уже есть в списке')
+            if result not in USERS[str(msg.from_user.id)]["Paragraph_text"]:
+                break
+        
+    await state.update_data(text=result)
     await end_of_filling(str(msg.from_user.id), state)
 
 
