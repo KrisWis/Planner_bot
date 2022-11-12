@@ -331,9 +331,11 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         
     elif call.data == "Выключить оповещение 🔕":
         """Обновляем наш JSON файл"""
-
-        USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1][USERS[str(call.from_user.id)]["Plan_number"]].cancel()  # Выключаем функцию, для отправки уведомления
-        del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1]
+        if USERS[str(call.from_user.id)]["Plan_number"] > 1:
+            USERS_BGTASKS[call.from_user.id][0][2].cancel()  # Выключаем функцию, для отправки уведомления
+        else:
+            USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1][USERS[str(call.from_user.id)]["Plan_number"]].cancel()  # Выключаем функцию, для отправки уведомления  
+            del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)]["Plan_number"] - 1]
 
         USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, USERS[str(call.from_user.id)]["Plan_number"]))
     
