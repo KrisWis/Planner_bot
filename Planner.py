@@ -287,7 +287,7 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         res = []
         """Сортируем список текстов"""
         for index, i in enumerate(USERS[str(call.from_user.id)]["Paragraph_text"]):
-            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][sorted(USERS[str(call.from_user.id)]["Paragraph_date"] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_time"]).index(USERS[str(call.from_user.id)]["Paragraph_date"][index] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_time"][index])])
+            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][sorted(USERS[str(call.from_user.id)]["Paragraph_time"] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_date"]).index(USERS[str(call.from_user.id)]["Paragraph_time"][index] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_date"][index])])
 
         USERS[str(call.from_user.id)]["Paragraph_text"] = res
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
@@ -300,7 +300,6 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
             ))
 
         await call.message.edit_text("Отлично! Пункт добавлен в план! ✅", reply_markup=keyboard)
-
         await state.finish()
 
     elif call.data == "Включить оповещение 🔔":
@@ -472,13 +471,10 @@ async def adding_time_to_user_plan(msg: Message, state: FSMContext):
 @DP.message_handler(state=UserState.text)  # Когда появляется состояние с text
 async def adding_text_to_user_plan(msg: Message, state: FSMContext):
     result = msg.text
-    if result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
-        while True:
-            result += str(len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == msg.text]) + random.randint(1, 100))
-            await msg.answer('❗️ Цифра добавлена в конец текста плана, т.к план с таким текстом уже есть в списке')
-            if result not in USERS[str(msg.from_user.id)]["Paragraph_text"]:
-                break
-        
+    while result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
+        result += str(len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == msg.text]) + random.randint(1, 100))
+        await msg.answer('❗️ Цифра добавлена в конец текста плана, т.к план с таким текстом уже есть в списке')
+
     await state.update_data(text=result)
     await end_of_filling(str(msg.from_user.id), state)
 
