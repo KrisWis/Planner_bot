@@ -285,13 +285,10 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         USERS[str(call.from_user.id)]["Plan_number"] += 1
         USERS[str(call.from_user.id)]["Experience"] += 5
         res = []
+        """Сортируем список текстов"""
         for index, i in enumerate(USERS[str(call.from_user.id)]["Paragraph_text"]):
-            """Проверяем список на наличии дубликатов"""
-            if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])):
-                res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_time"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_time"])[index])])
-            else:
-                res.append(USERS[str(call.from_user.id)]["Paragraph_text"][USERS[str(call.from_user.id)]["Paragraph_date"].index(sorted(USERS[str(call.from_user.id)]["Paragraph_date"])[index])])
-           
+            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][sorted(USERS[str(call.from_user.id)]["Paragraph_date"] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_time"]).index(USERS[str(call.from_user.id)]["Paragraph_date"][index] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_time"][index])])
+
         USERS[str(call.from_user.id)]["Paragraph_text"] = res
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
         USERS[str(call.from_user.id)]["Paragraph_time"].sort()
