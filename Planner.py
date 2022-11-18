@@ -416,6 +416,11 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text("Пункт удалён из плана! ❌")
 
 
+@DP.message_handler(state=UserState, commands=["stop"])      # КОГДА ПОЛЬЗОВАТЕЛЬ ПИШЕТ /stop
+async def stop(msg: Message, state: FSMContext):
+    await msg.answer("Заполнение плана прервано! ❌")
+    await state.finish()
+
 
 @DP.message_handler(state=UserState.date)  # Когда появляется состояние с date
 async def adding_date_to_user_plan(msg: Message, state: FSMContext):
