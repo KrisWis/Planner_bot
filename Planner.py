@@ -471,9 +471,14 @@ async def adding_time_to_user_plan(msg: Message, state: FSMContext):
 @DP.message_handler(state=UserState.text)  # Когда появляется состояние с text
 async def adding_text_to_user_plan(msg: Message, state: FSMContext):
     result = msg.text
-    while result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
-        result += str(len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == msg.text]) + random.randint(1, 100))
+    if result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
         await msg.answer('❗️ Цифра добавлена в конец текста плана, т.к план с таким текстом уже есть в списке')
+
+    while result in USERS[str(msg.from_user.id)]["Paragraph_text"]:
+        try:
+            result = result.replace(result[-1], str(int(result[-1]) + len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == result])))
+        except:
+            result += str(len([i for i in USERS[str(msg.from_user.id)]["Paragraph_text"] if i == result]) + 1)
 
     await state.update_data(text=result)
     await end_of_filling(str(msg.from_user.id), state)
