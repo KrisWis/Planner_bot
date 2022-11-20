@@ -14,7 +14,6 @@ import pytz
 import operator
 import dotenv
 import ast
-import random
 
 dotenv.load_dotenv()  # Загружаем файл .env
 
