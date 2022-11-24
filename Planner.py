@@ -286,11 +286,12 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         res = []
         """Сортируем список текстов"""
         for index, i in enumerate(USERS[str(call.from_user.id)]["Paragraph_text"]):
-            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][sorted(USERS[str(call.from_user.id)]["Paragraph_time"] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_date"]).index(USERS[str(call.from_user.id)]["Paragraph_time"][index] if len(USERS[str(call.from_user.id)]["Paragraph_time"]) == len(set(USERS[str(call.from_user.id)]["Paragraph_time"])) else USERS[str(call.from_user.id)]["Paragraph_date"][index])])
+            res.append(USERS[str(call.from_user.id)]["Paragraph_text"][sorted(USERS[str(call.from_user.id)]["Paragraph_time"] if len(USERS[str(call.from_user.id)]["Paragraph_date"]) != len(set(USERS[str(call.from_user.id)]["Paragraph_date"])) else USERS[str(call.from_user.id)]["Paragraph_date"]).index(USERS[str(call.from_user.id)]["Paragraph_time"][index] if len(USERS[str(call.from_user.id)]["Paragraph_date"]) != len(set(USERS[str(call.from_user.id)]["Paragraph_date"])) else USERS[str(call.from_user.id)]["Paragraph_date"][index])])
 
         USERS[str(call.from_user.id)]["Paragraph_text"] = res
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
-        USERS[str(call.from_user.id)]["Paragraph_time"].sort()
+        if len(USERS[str(call.from_user.id)]["Paragraph_date"]) != len(set(USERS[str(call.from_user.id)]["Paragraph_date"])):
+            USERS[str(call.from_user.id)]["Paragraph_time"].sort()
         saveDB()
         keyboard = InlineKeyboardMarkup()
         keyboard.add(aiogram.types.InlineKeyboardButton(
@@ -393,19 +394,18 @@ async def callback_worker(call: CallbackQuery, state: FSMContext):
         USERS[str(call.from_user.id)]["Paragraph_time"].sort()
         USERS[str(call.from_user.id)]["Paragraph_date"].sort()
         saveDB()
-
-        USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, 1))
-    
-        for index, i in enumerate(USERS_BGTASKS_JSON):
-            if index > 1 or int(i.split(',')[1][:-2]) > 1:
-                USERS_BGTASKS_JSON[index] = i.split(',')[0] + ', ' + str((int(i.split(',')[1][:-2]) - 1)) + '))'
-
-
-        open("USERS_BGTASKS.jsonc", 'w').write(
-            json.dumps(USERS_BGTASKS_JSON)  
-        )
-
         try:
+            USERS_BGTASKS_JSON.remove('asyncio.create_task(Bot_sends_message_when_time_comes(str({}), {}))'.format(call.from_user.id, 1))
+        
+            for index, i in enumerate(USERS_BGTASKS_JSON):
+                if index > 1 or int(i.split(',')[1][:-2]) > 1:
+                    USERS_BGTASKS_JSON[index] = i.split(',')[0] + ', ' + str((int(i.split(',')[1][:-2]) - 1)) + '))'
+
+
+            open("USERS_BGTASKS.jsonc", 'w').write(
+                json.dumps(USERS_BGTASKS_JSON)  
+            )
+
             USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)][0]["Plan_number"]].cancel()
             del USERS_BGTASKS[call.from_user.id][USERS[str(call.from_user.id)][0]["Plan_number"]]
         except:
