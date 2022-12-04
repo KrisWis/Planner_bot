@@ -1,4 +1,4 @@
-from aiogram.types import Message, ReplyKeyboardMarkup, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import Message, ReplyKeyboardMarkup, InlineKeyboardMarkup, CallbackQuery, InputTextMessageContent, InlineQueryResultArticle, InlineQuery
 import logging.handlers
 import logging
 import os
@@ -14,6 +14,7 @@ import pytz
 import operator
 import dotenv
 import ast
+import hashlib
 
 dotenv.load_dotenv()  # Загружаем файл .env
 
@@ -551,6 +552,29 @@ async def ReplyKeyboard_handling(msg: Message):  # Обработка запро
 
     else:
         await msg.answer("Ты не можешь использовать данную команду! ❌")
+
+
+@DP.inline_handler()
+async def show_user_plan(query: InlineQuery):
+    text = query.query 
+    result_id: str = hashlib.md5(text.encode()).hexdigest()
+    if USERS[str(query.from_user.id)]['Paragraph_text']:
+        text = query.query 
+        plan = await find_user_plan(str(query.from_user.id))
+        answer = [InlineQueryResultArticle(
+            id = result_id,
+            title = "Твой план: ",
+            description = plan[75:],
+            input_message_content=InputTextMessageContent(message_text=plan)
+        )]
+    else:
+        answer = [InlineQueryResultArticle(
+            id = result_id,
+            title = "У тебя ещё нету плана!", 
+            input_message_content=InputTextMessageContent(message_text="У пользователя ещё нету плана!")
+        )]
+    
+    await query.answer(answer, cache_time=1, is_personal=True)
 
 
 if __name__ == "__main__":  # Если файл запускается как самостоятельный, а не как модуль
